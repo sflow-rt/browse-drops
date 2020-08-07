@@ -1,0 +1,13 @@
+.twitter-typeahead, .tt-hint, .tt-input, .tt-menu { width: 100%; }
+.dropdown-menu, span.twitter-typeahead .tt-menu {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.trend { height: 300px; }
+.trend td {
+  cursor:pointer;
+  text-decoration:underline;
+}
+
+#help { min-height: 300px; }

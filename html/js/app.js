@@ -1,44 +1,18 @@
 $(function() { 
-  var keys = [
-    'reason',
-    'function',
-    'agent',
-    'datasource',
-    'inputifindex',
-    'macsource',
-    'macdestination',
-    'vlan',
-    'priority',
-    'ethernetprotocol',
-    'ipsource',
-    'ipdestination',
-    'ipdscp',
-    'ipprotocol',
-    'icmptype',
-    'icmpcode',
-    'ip6source',
-    'ip6destination',
-    'ip6dscp',
-    'ip6nexthdr',
-    'icmp6type',
-    'icmp6code',
-    'tcpsourceport',
-    'tcpdestinationport',
-    'udpsourceport',
-    'udpdestinationport'
-  ];
+  var restPath =  '../scripts/top.js/';
+  var keysURL = restPath + 'flowkeys/json';
+  var topURL = restPath + 'flows/json';
+  var defsURL = restPath + 'defs/json';
 
   $('a[href="#"]').on('click', function(e) {
     e.preventDefault();
   });
 
-  var SEP = ',';
+  var SEP = '_SEP_';
 
-  var maxPoints = 5 * 60;
-  var step = 1000;
   var db = {};
 
-  var defaults = {keys:'', filter: ''};
+  var defaults = {keys:'', value: '', filter: ''};
   var state = {};
   $.extend(state, defaults);
 
@@ -55,12 +29,12 @@ $(function() {
   }
 
   function getState(key, defVal) {
-    return window.sessionStorage.getItem('flow_browser_'+key) || state[key] || defVal;
+    return window.sessionStorage.getItem('drop_browser_'+key) || state[key] || defVal;
   }
 
   function setState(key, val, showQuery) {
     state[key] = val;
-    window.sessionStorage.setItem('discard_browser_'+key, val);
+    window.sessionStorage.setItem('drop_browser_'+key, val);
     if(showQuery) {
       var query = createQuery(state);
       window.history.replaceState({},'', query ? 'index.html?' + query : 'index.html');
@@ -80,6 +54,7 @@ $(function() {
   if(search) setQueryParams(search.substring(1));
 
   var top_keys = getState('keys','');
+  var top_value = getState('value','');
   var top_filter = getState('filter','');
 
   $('#clone').click(function() {
@@ -95,18 +70,45 @@ $(function() {
 
   var sep_keys = ',';
   function keySuggestions(q, sync, async) {
+    var parts = split(q,sep_keys);
+    var prefix = parts[0];
+    var suffix = parts[1];
+
+    $.getJSON(keysURL, { search: suffix }, function(suggestedToken) {
+      if(suggestedToken.length === 1 && suggestedToken[0] === suffix) return;
+      var suggestions = [];
+      for (var i = 0; i < suggestedToken.length; i++) {
+        suggestions.push(prefix + suggestedToken[i]); 
+      }
+      async(suggestions); 
+    });
+  }
+
+  var values = ['bps','Bps','fps'];
+  function valueSuggestions(q,sync) {
     if(q) {
-      var parts = split(q,sep_keys);
-      var prefix = parts[0];
-      var suffix = parts[1];
-      var matcher = new RegExp('^' + suffix);
-      var suggestions = keys.filter((el) => matcher.test(el));
-      if(suggestions.length === 1 && suggestions[0] === suffix) return;
-      suggestions = suggestions.map((el) => prefix + el);
+      var matcher = new RegExp('^' + q);
+      var suggestions = values.filter((el) => matcher.test(el));
+      if(suggestions.length === 1 && suggestions[0] === q) return;
       sync(suggestions);
     } else {
-      sync(keys);
+      sync(values);
     }
+  }
+
+  var sep_filter = '[&|(]';
+  function filterSuggestions(q, sync, async) {
+    var parts = split(q,sep_filter);
+    var prefix = parts[0];
+    var suffix = parts[1]; 
+    $.getJSON(keysURL, { search: suffix }, function(suggestedToken) {
+      if(suggestedToken.length === 1 && suggestedToken[0] === suffix) return;
+      var suggestions = [];
+      for (var i = 0; i < suggestedToken.length; i++) {
+        suggestions.push(prefix + suggestedToken[i]);
+      }
+      async(suggestions); 
+    });
   }
 
   $('#keys')
@@ -140,23 +142,18 @@ $(function() {
       $(this).typeahead('val', suggestion);
       this.scrollLeft = this.scrollWidth;
     });
-
-  var sep_filter = '&';
-  function filterSuggestions(q, sync, async) {
-    if(q) {
-      var parts = split(q,sep_filter);
-      var prefix = parts[0];
-      var suffix = parts[1];
-      var matcher = new RegExp('^' + suffix);
-      var suggestions = keys.filter((el) => matcher.test(el));
-      if(suggestions.length === 1 && suggestions[0] === suffix) return;
-      suggestions = suggestions.map((el) => prefix + el);
-      sync(suggestions);
-    } else {
-      sync(keys);
-    } 
-  }
-
+  $('#value')
+    .val(top_value)
+    .typeahead(
+      {
+        highlight: true,
+        minLength: 0
+      },
+      {
+        name: 'value',
+        source: valueSuggestions
+      }
+    );
   $('#filter')
     .val(top_filter)
     .typeahead(
@@ -189,57 +186,116 @@ $(function() {
       this.scrollLeft = this.scrollWidth;
     });
 
+  function valueToKey(val) {
+    var key;
+    switch(val) {
+    case 'bps': 
+      key = 'bytes'; 
+      break;
+    case 'Bps': 
+      key = 'bytes'; 
+      break;
+    case 'fps': 
+      key = 'frames'; 
+      break;
+    default: 
+      key = val;
+    }
+    return key;
+  }
+
+  function valueToScale(val) {
+    return 'bps' === val ? 8 : 1;
+  }
+
+  function valueToTitle(val) {
+    var title;
+    switch(val) {
+    case 'bps': 
+      title = 'Bits per Second'; 
+      break;
+    case 'bytes':
+      case 'Bps': 
+      title = 'Bytes per Second'; 
+      break;
+    case 'frames':
+      case 'fps': 
+      title  = 'Frames per Second'; 
+      break;
+    case 'requests':
+      title = 'Requests per Second';
+      break;
+    default: 
+      title = val;
+    }
+    return title;
+  }
+
+  function addFilter(key, value, filter) {
+    var newFilter = filter;
+    if(!newFilter) newFilter = "";
+    if(newFilter.length > 0) newFilter += "&";
+    newFilter += "'" + key + "'='" + value + "'";
+    $('#filter').typeahead('val',newFilter);	 
+    top_filter = newFilter;
+    setState('filter', top_filter, true);
+    emptyTopFlows();
+  }
+
+  function updateData(data,scale) {
+    if(!data 
+      || !data.trend 
+      || !data.trend.times 
+      || data.trend.times.length == 0) return;
+
+    if(scale !== 1) {
+      var topn = data.trend.trends.topn;
+      for(var i = 0; i < topn.length; i++) {
+        var entry = topn[i];
+        for(var flow in entry) {
+          entry[flow]*=scale;
+        }
+      }
+    }
+
+    if(db.trend) {
+      // merge in new data
+      var maxPoints = db.trend.maxPoints;
+      var remove = db.trend.times.length > maxPoints ? db.trend.times.length - maxPoints : 0;
+      db.trend.times = db.trend.times.concat(data.trend.times);
+      if(remove) db.trend.times = db.trend.times.slice(remove);
+      for(var name in db.trend.trends) {
+        db.trend.trends[name] = db.trend.trends[name].concat(data.trend.trends[name]);
+        if(remove) db.trend.trends[name] = db.trend.trends[name].slice(remove);
+      }
+    } else db.trend = data.trend;
+
+    db.trend.start = new Date(db.trend.times[0]);
+    db.trend.end = new Date(db.trend.times[db.trend.times.length - 1]);
+
+    $.event.trigger({type:'updateChart'});
+  }
+
   var running_topflows;
   var timeout_topflows;
   function pollTopFlows() {
     running_topflows = true;
+    var query = {keys:top_keys,value:valueToKey(top_value),filter:top_filter};
+    if(db.trend && db.trend.end) query.after=db.trend.end.getTime();
+    var scale = valueToScale(top_value);
     $.ajax({
-      url: '../../../dropped/ALL/dropped_2/10/' + top_keys + '/json?' + top_filter,
+      url: topURL,
+      data: query,
       success: function(data) {
         if(running_topflows) {
-          updateData(data);
-          timeout_topflows = setTimeout(pollTopFlows, step);
+          updateData(data,scale);
+          timeout_topflows = setTimeout(pollTopFlows, 1000);
         }
       },
       error: function(result,status,errorThrown) {
         if(running_topflows) timeout_topflows = setTimeout(pollTopFlows, 5000);
       }
     });
-  }
-
-  function resetChart() {
-    db.trend = {times:[], trends: {topn: []}};
-    var i, t = Date.now();
-    for(i = 0; i < maxPoints; i++) {
-      t = t - step;
-      db.trend.times.unshift(t);
-    }
-    for(i = 0; i < db.trend.times.length; i++) db.trend.trends.topn.push({});
-  }
-
-  function updateData(data) {
-    if(!data || data.length === 0) return;
-
-    var now = Date.now();
-    db.trend.times.push(now);
-
-    var tmin = now - (maxPoints * 1.04 * step);
-    var nshift = 0;
-    while(db.trend.times.length >= maxPoints || db.trend.times[0] < tmin) {
-      db.trend.times.shift();
-      nshift++;
-    }
-    var topn = db.trend.trends.topn;
-    var entry = {};
-    for(var i = 0; i < data.length; i++) {
-      entry[data[i].key] = data[i].value;
-    }
-    topn.push(entry);
-    for(var i = 0; i < nshift; i++) {
-      topn.shift();
-    }    
-
-    $.event.trigger({type:'updateChart'});
   }
 
   function stopPollTopFlows() {
@@ -249,32 +305,35 @@ $(function() {
 
   function emptyTopFlows() {
     stopPollTopFlows();
-
     if(db.trend) {
       $(document).off('updateChart');
       $('#topn').stripchart('destroy');
       $('#topn').empty();
       delete db.trend;
+      $('#delete').prop('disabled',true);
+      $('#save').prop('disabled',true);
     }
 
-    if(!top_keys) {
+    if(!top_keys || !top_value) {
       $('#help').show();
       $('#topn').hide();
       return;
     }
 
-    resetChart();
-    $('#topn').chart({
-      type: 'topn',
-      legendHeadings: top_keys.match(/(\\.|[^,])+/g),
-      units:'Frames per Second',
-      stack: true,
-      sep: SEP,
-      metric: 'topn'
-    }, db);
+    if(!db.trend) {
+       $('#topn').chart({
+          type: 'topn',
+          legendHeadings: top_keys.match(/(\\.|[^,])+/g),
+          units:valueToTitle(top_value),
+          stack: true,
+          sep: SEP,
+          metric: 'topn'
+       },db);
+    }
 
     $('#help').hide();
     $('#topn').show();
+    var query = {keys:top_keys,value:valueToKey(top_value),filter:top_filter};
     pollTopFlows();
   }
 
@@ -283,30 +342,23 @@ $(function() {
     $('#value').typeahead('val','');
     $('#filter').typeahead('val','');
     top_keys = '';
+    top_value = '';
     top_filter = '';
     setState('keys',top_keys);
+    setState('value',top_value);
     setState('filter',top_filter,true);
     emptyTopFlows();
   });
 
   $('#submit').click(function() {
     top_keys = $.trim($('#keys').typeahead('val')).replace(/(,$)/g, "");
+    top_value = $.trim($('#value').typeahead('val'));
     top_filter = $.trim($('#filter').typeahead('val'));
     setState('keys',top_keys);
+    setState('value',top_value);
     setState('filter',top_filter,true);
     emptyTopFlows();   
   });
-
-  function addFilter(key,value,filter) {
-    var newFilter = filter;
-    if(!newFilter) newFilter = "";
-    if(newFilter.length > 0) newFilter += "&";
-    newFilter += key + "=" + value;
-    $('#filter').typeahead('val',newFilter);	 
-    top_filter = newFilter;
-    setState('filter', top_filter, true);
-    emptyTopFlows();
-  }
 
   $('#topn').click(function(e) {
     var idx,key,val,tgt = $(e.target);
@@ -328,6 +380,7 @@ $(function() {
       });
     }
   });
+
+  emptyTopFlows();
   
-  emptyTopFlows(); 
 });

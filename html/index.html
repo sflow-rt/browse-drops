@@ -32,8 +32,11 @@
     <main class="container-fluid" role="main">
       <form autocomplete="off">
         <div class="form-row">
-          <div class="col-lg-5 mb-3">
+          <div class="col-lg-4 mb-3">
             <input type="text" class="typeahead form-control" id="keys" placeholder="Keys">
+          </div>
+          <div class="col-lg-1 mb-3">
+            <input type="text" class="typeahead form-control" id="value" placeholder="Value">
           </div>
           <div class="col-lg-5 mb-3">
             <input type="text" class="typeahead form-control" id="filter" placeholder="Filter">
@@ -50,19 +53,21 @@
         <h3>Instructions</h3>
         <p>To create a real-time discarded packet trend chart:</p>
         <ol>
-          <li><strong>Keys</strong> Enter a comma separated list of attributes to group discarded packets, e.g. <em>reason,agent,inputifindex</em></li>
+          <li><strong>Keys</strong> Enter a comma separated list of attributes to define the flow, e.g. <em>reason,agent,inputifindex</em></li>
+          <li><strong>Value</strong> Enter a value to plot, e.g. <em>fps</em> (Frames per Second)</li>
           <li><strong>Filter</strong> Enter a filter to select specific traffic, e.g. <em>ipprotocol=6</em> (TCP)</li>
           <li><strong>Submit</strong> Click the button to create the chart</li>
         </ol>
+        <p>See <a href="https://sflow-rt.com/define_flow.php">Defining Flows</a> for more information</p>
         <p>Click on peaks in the trend chart to see values at that time. Click on items in the chart legend to drill down by appending the item to the current filter.</p>
         <p>Click on <em>Clone</em> button to create a new window with current settings. Bookmark/copy URL to re-create chart.</p> 
       </div>
       <div id="topn" class="trend"></div>
     </main>
     <footer class="footer page-footer border-top mt-3">
-      <div class="footer-copyright text-center py-2">
-        <small class="text-muted">Copyright &copy; 2020 InMon Corp. ALL RIGHTS RESERVED</small>
-      </div>
+       <div class="footer-copyright text-center py-2">
+         <small class="text-muted">Copyright &copy; 2015-<span class="year">2020</span> InMon Corp. ALL RIGHTS RESERVED</small>
+       </div>
     </footer>
   </body>
 </html>

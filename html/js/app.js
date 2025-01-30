@@ -8,6 +8,8 @@ $(function() {
     e.preventDefault();
   });
 
+  $('.year').html((new Date()).getFullYear());
+
   var SEP = '_SEP_';
 
   var db = {};
@@ -303,6 +305,14 @@ $(function() {
     if(timeout_topflows) clearTimeout(timeout_topflows);
   }
 
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   function emptyTopFlows() {
     stopPollTopFlows();
     if(db.trend) {
@@ -323,7 +333,7 @@ $(function() {
     if(!db.trend) {
        $('#topn').chart({
           type: 'topn',
-          legendHeadings: top_keys.match(/(\\.|[^,])+/g),
+          legendHeadings: top_keys.match(/(\\.|[^,])+/g).map((x) => escapeHTML(x)),
           units:valueToTitle(top_value),
           stack: true,
           sep: SEP,
